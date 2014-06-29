@@ -63,43 +63,43 @@ class Headset():
     def get_state(self):
         return self.parser.dongle_state
 
-    def get_current_attention(self):
-        return self.parser.current_attention
+    def get_attention(self):
+        return self.parser.attention
 
-    def get_current_meditation(self):
-        return self.parser.current_meditation
+    def get_meditation(self):
+        return self.parser.meditation
 
-    def get_rawdata(self):
+    def get_raw_values(self):
         return self.parser.raw_values
 
     def get_waves_vector(self):
         return self.parser.current_vector
 
     def get_delta_waves(self):
-        return self.parser.current_vector[0]
+        return self.parser.delta
 
     def get_theta_waves(self):
-        return self.parser.current_vector[1]
+        return self.parser.theta
 
     def get_alpha_waves(self):
-        return (self.parser.current_vector[2] + self.parser.current_vector[3]) / 2
+        return (self.parser.low_alpha + self.parser.high_alpha) / 2
 
     def get_beta_waves(self):
-        return (self.parser.current_vector[4] + self.parser.current_vector[5]) / 2
+        return (self.parser.low_beta + self.parser.high_beta) / 2
 
     def get_gamma_waves(self):
-        return (self.parser.current_vector[6] + self.parser.current_vector[7]) / 2
+        return (self.parser.low_gamma + self.parser.mid_gamma) / 2
 
     def get_blink_strength(self):
-        return self.parser.current_blink_strength
+        return self.parser.blink_strength
 
     def get(self, stuff):
         if stuff == 'attention':
-            return self.get_current_attention()
+            return self.get_attention()
         elif stuff == 'meditation':
-            return self.get_current_meditation()
-        elif stuff == 'rawdata':
-            return self.get_rawdata()
+            return self.get_meditation()
+        elif stuff == 'raw_values':
+            return self.get_raw_values()
         elif stuff == 'state':
             return self.get_state()
         elif stuff == 'waves_vector':
@@ -119,3 +119,5 @@ class Headset():
         else:
             return None
 
+    def setCallBack(self, variable_name, callback_function):
+        self.parser.setCallBack(variable_name, callback_function)

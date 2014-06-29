@@ -34,11 +34,32 @@ but for now I am satisfied with using Python only.
 """
 
 class VirtualParser(object):
-    def __init__(self, input_fstream):
+    
+    """Setting callback:a call back can be associated with all the above 
+    variables so that a function is called when the variable is updated. 
+    Syntax: setCallBack("variable",callback_function)
+    for eg. to set a callback for attention data the syntax will be 
+    setCallBack("attention",callback_function)"""
+    __attention=0
+    __meditation=0
+    __raw_value=0
+    __raw_values=[]
+    __delta=0
+    __theta=0
+    __low_alpha=0
+    __high_alpha=0
+    __low_beta=0
+    __high_beta=0
+    __low_gamma=0
+    __mid_gamma=0    
+    __poor_signal=0
+    __blink_strength=0 
+
+    callBacksDictionary={} #keep a track of all callbacks
+    
+    def __init__(self, input_fstream, raw_buffer_len=512):
         #self.parser = self.run()
         #self.parser.next()
-        self.current_vector  = [0 for i in range(8)]
-        self.raw_values = []
         self.current_meditation = 0
         self.current_attention= 0
         self.current_blink_strength = 0
@@ -50,6 +71,7 @@ class VirtualParser(object):
         self.input_fstream = input_fstream
         self.input_stream = []
         self.read_more_stream()
+        self.raw_buffer_len = raw_buffer_len
         self.buffer_len = 512*3
 
     def is_sending_data(self):
@@ -71,18 +93,24 @@ class VirtualParser(object):
                     self.is_sending_data()
                     high_word = payload.pop(0)
                     low_word = payload.pop(0)
-                    self.raw_values.append(high_word * 255 + low_word)
-                    if (len(self.raw_values)) > 512:
-                        self.raw_values.pop(0)
+                    value = high_word * 256 + low_word
+                    if value > 32768:
+                        value -= 65536
+                    self.raw_value = value
                 elif code == 0x83:
                     self.is_sending_data()
                     # ASIC_EEG_POWER_INT
                     # delta, theta, low-alpha, high-alpha, low-beta, high-beta,
                     # low-gamma, high-gamma
-                    self.current_vector = []
-                    for i in range(8):
-                        self.current_vector.append(
-                            bigend_24b(payload.pop(0), payload.pop(0), payload.pop(0)))
+                    self.delta=bigend_24b(payload.pop(0), payload.pop(0), payload.pop(0))
+                    self.theta=bigend_24b(payload.pop(0), payload.pop(0), payload.pop(0))
+                    self.low_alpha=bigend_24b(payload.pop(0), payload.pop(0), payload.pop(0))
+                    self.high_alpha=bigend_24b(payload.pop(0), payload.pop(0), payload.pop(0))
+                    self.low_beta=bigend_24b(payload.pop(0), payload.pop(0), payload.pop(0))
+                    self.high_beta=bigend_24b(payload.pop(0), payload.pop(0), payload.pop(0))
+                    self.low_gamma=bigend_24b(payload.pop(0), payload.pop(0), payload.pop(0))
+                    self.mid_gamma=bigend_24b(payload.pop(0), payload.pop(0), payload.pop(0))
+
                 elif code == 0xd0:
                     # headset found
                     # 0xaa 0xaa 0x04 0xd0 0x02 0x05 0x05 0x23
@@ -115,11 +143,11 @@ class VirtualParser(object):
                 if code == 0x02:
                     self.poor_signal = val
                 elif code == 0x04:
-                    self.current_attention = val
+                    self.attention = val
                 elif code == 0x05:
-                    self.current_meditation = val
+                    self.meditation = val
                 elif code == 0x16:
-                    self.current_blink_strength = val
+                    self.blink_strength = val
                 else:
                     # unknown code
                     pass
@@ -287,6 +315,170 @@ class VirtualParser(object):
                     pass # sync failed
             else:
                 pass # sync failed
+    
+    def setCallBack(self,variable_name,callback_function):
+        """Setting callback:a call back can be associated with all the above variables so that a function is called when the variable is updated. Syntax: setCallBack("variable",callback_function)
+           for eg. to set a callback for attention data the syntax will be setCallBack("attention",callback_function)"""
+        self.callBacksDictionary[variable_name]=callback_function
+        
+    #setting getters and setters for all variables
+    
+    #attention
+    @property
+    def attention(self):
+        "Get value for attention"
+        return self.__attention
+    @attention.setter
+    def attention(self,value):
+        self.__attention=value
+        if self.callBacksDictionary.has_key("attention"): #if callback has been set, execute the function
+            self.callBacksDictionary["attention"](self.__attention)
+            
+    #meditation
+    @property
+    def meditation(self):
+        "Get value for meditation"
+        return self.__meditation
+    @meditation.setter
+    def meditation(self,value):
+        self.__meditation=value
+        if self.callBacksDictionary.has_key("meditation"): #if callback has been set, execute the function
+            self.callBacksDictionary["meditation"](self.__meditation)
+            
+    #raw_value
+    @property
+    def raw_value(self):
+        "Get value for raw_value"
+        return self.__raw_value
+    @raw_value.setter
+    def raw_value(self,value):
+        self.__raw_value=value
+        self.__raw_values.append(value)
+        if self.callBacksDictionary.has_key("raw_value"): #if callback has been set, execute the function
+            self.callBacksDictionary["raw_value"](self.__raw_value)
+        if len(self.__raw_values) == self.raw_buffer_len: 
+            if self.callBacksDictionary.has_key("raw_values"): #if callback has been set, execute the function
+                self.callBacksDictionary["raw_values"](self.__raw_values)
+                del self.__raw_values[:]
+            else:
+                self.__raw_values.pop(0)
+
+    #raw_values
+    @property
+    def raw_values(self):
+        "Get value for raw_values"
+        return self.__raw_values
+
+    #delta
+    @property
+    def delta(self):
+        "Get value for delta"
+        return self.__delta
+    @delta.setter
+    def delta(self,value):
+        self.__delta=value
+        if self.callBacksDictionary.has_key("delta"): #if callback has been set, execute the function
+            self.callBacksDictionary["delta"](self.__delta)
+
+    #theta
+    @property
+    def theta(self):
+        "Get value for theta"
+        return self.__theta
+    @theta.setter
+    def theta(self,value):
+        self.__theta=value
+        if self.callBacksDictionary.has_key("theta"): #if callback has been set, execute the function
+            self.callBacksDictionary["theta"](self.__theta)
+
+    #low_alpha
+    @property
+    def low_alpha(self):
+        "Get value for low_alpha"
+        return self.__low_alpha
+    @low_alpha.setter
+    def low_alpha(self,value):
+        self.__low_alpha=value
+        if self.callBacksDictionary.has_key("low_alpha"): #if callback has been set, execute the function
+            self.callBacksDictionary["low_alpha"](self.__low_alpha)
+
+    #high_alpha
+    @property
+    def high_alpha(self):
+        "Get value for high_alpha"
+        return self.__high_alpha
+    @high_alpha.setter
+    def high_alpha(self,value):
+        self.__high_alpha=value
+        if self.callBacksDictionary.has_key("high_alpha"): #if callback has been set, execute the function
+            self.callBacksDictionary["high_alpha"](self.__high_alpha)
+
+
+    #low_beta
+    @property
+    def low_beta(self):
+        "Get value for low_beta"
+        return self.__low_beta
+    @low_beta.setter
+    def low_beta(self,value):
+        self.__low_beta=value
+        if self.callBacksDictionary.has_key("low_beta"): #if callback has been set, execute the function
+            self.callBacksDictionary["low_beta"](self.__low_beta)
+
+    #high_beta
+    @property
+    def high_beta(self):
+        "Get value for high_beta"
+        return self.__high_beta
+    @high_beta.setter
+    def high_beta(self,value):
+        self.__high_beta=value
+        if self.callBacksDictionary.has_key("high_beta"): #if callback has been set, execute the function
+            self.callBacksDictionary["high_beta"](self.__high_beta)
+
+    #low_gamma
+    @property
+    def low_gamma(self):
+        "Get value for low_gamma"
+        return self.__low_gamma
+    @low_gamma.setter
+    def low_gamma(self,value):
+        self.__low_gamma=value
+        if self.callBacksDictionary.has_key("low_gamma"): #if callback has been set, execute the function
+            self.callBacksDictionary["low_gamma"](self.__low_gamma)
+
+    #mid_gamma
+    @property
+    def mid_gamma(self):
+        "Get value for mid_gamma"
+        return self.__mid_gamma
+    @mid_gamma.setter
+    def mid_gamma(self,value):
+        self.__mid_gamma=value
+        if self.callBacksDictionary.has_key("mid_gamma"): #if callback has been set, execute the function
+            self.callBacksDictionary["mid_gamma"](self.__mid_gamma)
+    
+    #poor_signal
+    @property
+    def poor_signal(self):
+        "Get value for poor_signal"
+        return self.__poor_signal
+    @poor_signal.setter
+    def poor_signal(self,value):
+        self.__poor_signal=value
+        if self.callBacksDictionary.has_key("poor_signal"): #if callback has been set, execute the function
+            self.callBacksDictionary["poor_signal"](self.__poor_signal)
+    
+    #blink_strength
+    @property
+    def blink_strength(self):
+        "Get value for blink_strength"
+        return self.__blink_strength
+    @blink_strength.setter
+    def blink_strength(self,value):
+        self.__blink_strength=value
+        if self.callBacksDictionary.has_key("blink_strength"): #if callback has been set, execute the function
+            self.callBacksDictionary["blink_strength"](self.__blink_strength)
 
 
 class Parser(VirtualParser):
