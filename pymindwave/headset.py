@@ -31,7 +31,7 @@ class DongleReader(threading.Thread):
         self._Thread__stop()
 
 
-class Headset():
+class Headset(object):
     def __init__(self, dongle_dev, global_id=None):
         if global_id:
             self.auto_connect = False
