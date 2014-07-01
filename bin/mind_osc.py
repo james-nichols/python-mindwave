@@ -61,6 +61,7 @@ class HeadsetOSCManager(object):
         self.hs = headset.Headset(serial_dev)
         self.hs.setCallBack("attention", self.attention_callback)
         self.hs.setCallBack("delta", self.delta_callback)
+        self.hs.setCallBack("theta", self.theta_callback)
         self.hs.setCallBack("raw_values", self.raw_values_callback)
         
         self.osc_host = osc_host
@@ -77,13 +78,17 @@ class HeadsetOSCManager(object):
         return None
 
     def delta_callback(self, delta_value):
-        "this function will be called everytime NeuroPy has a new value for attention"
         msg = OSC.OSCMessage("/eegdelta")
         msg.append(delta_value)
         self.osc_client.send(msg) 
         print "Value of delta is", delta_value
-        
+
+    def theta_callback(self, theta_value):
+        msg = OSC.OSCMessage("/eegtheta")
+        msg.append(theta_value)
+        self.osc_client.send(msg) 
         return None
+
     def raw_values_callback(self, raw_values):
         """ This function takes the raw values data, in blocks specified by the block size, and 
         sends it to the sound buffer """
@@ -112,7 +117,7 @@ if __name__ == "__main__":
     #host_port_Max = 8000
     host_port_Max = 3444 
 
-    #hsm = HeadsetOSCManager(osc_host = host_ip, osc_port = host_port_SC)
+    #hsm = HeadsetOSCManager(osc_host = local_ip, osc_port = host_port_SC)
     hsm = HeadsetOSCManager(osc_host = local_ip, osc_port = host_port_Max)
     time.sleep(1)
     
