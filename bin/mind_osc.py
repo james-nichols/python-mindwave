@@ -60,9 +60,18 @@ class HeadsetOSCManager(object):
 
         self.hs = headset.Headset(serial_dev)
         self.hs.setCallBack("attention", self.attention_callback)
+        self.hs.setCallBack("meditation", self.meditation_callback)
+        self.hs.setCallBack("raw_values", self.raw_values_callback)
         self.hs.setCallBack("delta", self.delta_callback)
         self.hs.setCallBack("theta", self.theta_callback)
-        self.hs.setCallBack("raw_values", self.raw_values_callback)
+        self.hs.setCallBack("low_alpha", self.low_alpha_callback)
+        self.hs.setCallBack("high_alpha", self.high_alpha_callback)
+        self.hs.setCallBack("low_beta", self.low_beta_callback)
+        self.hs.setCallBack("high_beta", self.high_beta_callback)
+        self.hs.setCallBack("low_gamma", self.low_gamma_callback)
+        self.hs.setCallBack("mid_gamma", self.mid_gamma_callback)
+        self.hs.setCallBack("high_gamma", self.high_gamma_callback)
+        self.hs.setCallBack("blink_strength", self.blink_strength_callback)
         
         self.osc_host = osc_host
         self.osc_port = osc_port
@@ -70,22 +79,15 @@ class HeadsetOSCManager(object):
         self.osc_client = OSC.OSCClient()
         self.osc_client.connect((self.osc_host, self.osc_port))
          
-    def attention_callback(self, attention_value):
-        "this function will be called everytime NeuroPy has a new value for attention"
-        
-        print "Value of attention is", attention_value
-        
+    def attention_callback(self, value):
+        msg = OSC.OSCMessage("/eegattention")
+        msg.append(value)
+        self.osc_client.send(msg) 
         return None
 
-    def delta_callback(self, delta_value):
-        msg = OSC.OSCMessage("/eegdelta")
-        msg.append(delta_value)
-        self.osc_client.send(msg) 
-        print "Value of delta is", delta_value
-
-    def theta_callback(self, theta_value):
-        msg = OSC.OSCMessage("/eegtheta")
-        msg.append(theta_value)
+    def meditation_callback(self, value):
+        msg = OSC.OSCMessage("/eegmeditation")
+        msg.append(value)
         self.osc_client.send(msg) 
         return None
 
@@ -102,6 +104,65 @@ class HeadsetOSCManager(object):
         #self.sound_buffer = 5 * signal.resample(raw_values, self.sample_rate).astype(np.int16)
         #print self.sound_buffer[:256]
         #print self.sound_buffer[:-255]
+        return None
+
+    def delta_callback(self, value):
+        msg = OSC.OSCMessage("/eegdelta")
+        msg.append(value)
+        self.osc_client.send(msg) 
+
+    def theta_callback(self, value):
+        msg = OSC.OSCMessage("/eegtheta")
+        msg.append(value)
+        self.osc_client.send(msg) 
+        return None
+
+    def low_alpha_callback(self, value):
+        msg = OSC.OSCMessage("/eeglowalpha")
+        msg.append(value)
+        self.osc_client.send(msg) 
+        return None
+
+    def high_alpha_callback(self, value):
+        msg = OSC.OSCMessage("/eeghighalpha")
+        msg.append(value)
+        self.osc_client.send(msg) 
+        return None
+
+    def low_beta_callback(self, value):
+        msg = OSC.OSCMessage("/eeglowbeta")
+        msg.append(value)
+        self.osc_client.send(msg) 
+        return None
+
+    def high_beta_callback(self, value):
+        msg = OSC.OSCMessage("/eeghighbeta")
+        msg.append(value)
+        self.osc_client.send(msg) 
+        return None
+
+    def low_gamma_callback(self, value):
+        msg = OSC.OSCMessage("/eeglowgamma")
+        msg.append(value)
+        self.osc_client.send(msg) 
+        return None
+
+    def mid_gamma_callback(self, value):
+        msg = OSC.OSCMessage("/eegmidgamma")
+        msg.append(value)
+        self.osc_client.send(msg) 
+        return None
+
+    def high_gamma_callback(self, value):
+        msg = OSC.OSCMessage("/eeghighgamma")
+        msg.append(value)
+        self.osc_client.send(msg) 
+        return None
+
+    def blink_strength_callback(self, value):
+        msg = OSC.OSCMessage("/eegblinkstrength")
+        msg.append(value)
+        self.osc_client.send(msg) 
         return None
 
     def poll_buffer(self, in_data, frame_count, time_info, status):
