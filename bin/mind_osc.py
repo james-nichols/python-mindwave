@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 
-import platform
-import sys, time
+import platform, sys, time, threading
 import numpy as np
 from scipy import signal
+from scipy import interpolate
 
 import OSC
 import pyaudio
@@ -78,6 +78,16 @@ class HeadsetOSCManager(object):
         # Now setup OSC client to send data
         self.osc_client = OSC.OSCClient()
         self.osc_client.connect((self.osc_host, self.osc_port))
+        
+        self.low_alpha_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_low_alpha")
+        self.high_alpha_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_high_alpha")
+        
+    def destroy(self):
+        
+        self.low_alpha_interp.stop()
+        self.low_alpha_interp.stop()
+        
+        self.osc_client.disconnect()
          
     def attention_callback(self, value):
         msg = OSC.OSCMessage("/eegattention")
@@ -118,12 +128,20 @@ class HeadsetOSCManager(object):
         return None
 
     def low_alpha_callback(self, value):
+        self.low_alpha_interp.insert_point(value)
+        if not self.low_alpha_interp.is_alive():
+            self.low_alpha_interp.start()
+         
         msg = OSC.OSCMessage("/eeglowalpha")
         msg.append(value)
         self.osc_client.send(msg) 
         return None
 
     def high_alpha_callback(self, value):
+        self.high_alpha_interp.insert_point(value)
+        if not self.high_alpha_interp.is_alive():
+            self.high_alpha_interp.start()
+
         msg = OSC.OSCMessage("/eeghighalpha")
         msg.append(value)
         self.osc_client.send(msg) 
@@ -168,18 +186,59 @@ class HeadsetOSCManager(object):
     def poll_buffer(self, in_data, frame_count, time_info, status):
         #print "flushing sound_buffer", sound_buffer, len(sound_buffer)
         return (self.sound_buffer, pyaudio.paContinue)
-   
+  
+class ParameterInterpolator(threading.Thread):
+    
+    def __init__(self, freq, buf_len, osc_host, osc_port, msg_name):
+
+        self.frequency = freq
+        self.buf = np.zeros(buf_len)
+
+        self.interpolator = interpolate.interp1d([-1.0, 0.0, 1.0], self.buf, 'quadratic')
+        self.interpolated_buf = self.interpolator(np.linspace(0.0, 1.0, self.frequency)) 
+        self.interpolated_buf_counter = 0
+
+        self.osc_client = OSC.OSCClient()
+        self.osc_client.connect((osc_host, osc_port))
+        self.osc_msg_name = msg_name
+        
+        self.running = True
+        super(ParameterInterpolator, self).__init__()
+    
+    def insert_point(self, value):
+        self.buf[:-1] = self.buf[1:]
+        self.buf[-1] = value
+        self.interpolator = interpolate.interp1d([-1.0, 0.0, 1.0], self.buf, 'quadratic')
+        self.interpolated_buf = self.interpolator(np.linspace(0.0, 1.0, self.frequency)) 
+        self.interpolated_buf_counter = 0
+
+    def run(self):
+        while self.running:
+            while self.interpolated_buf_counter < self.frequency:
+                msg = OSC.OSCMessage(self.osc_msg_name)
+                msg.append(self.interpolated_buf[self.interpolated_buf_counter])
+                self.osc_client.send(msg) 
+                self.interpolated_buf_counter += 1
+                time.sleep(1.0 / float(self.frequency))
+                 
+
+    def stop(self):
+
+        self.osc_client.disconnect()
+        self.running = False
+        selt._Thread__stop()
+      
 if __name__ == "__main__":
     
     #hsm = HeadsetSoundManager()
     local_ip = "127.0.0.1"
     pia_ip = "192.168.0.27"
-    host_port_SC = 57110 
+    host_port_SC = 57120 
     #host_port_Max = 8000
     host_port_Max = 3444 
 
-    #hsm = HeadsetOSCManager(osc_host = local_ip, osc_port = host_port_SC)
-    hsm = HeadsetOSCManager(osc_host = local_ip, osc_port = host_port_Max)
+    hsm = HeadsetOSCManager(osc_host = local_ip, osc_port = host_port_SC)
+    #hsm = HeadsetOSCManager(osc_host = local_ip, osc_port = host_port_Max)
     time.sleep(1)
     
     if hsm.hs.get_state() != 'connected':
@@ -198,10 +257,11 @@ if __name__ == "__main__":
         time.sleep(1)
 
     print 'disconnecting...'
+    hsm.destroy()
     hs.disconnect()
     hs.destroy()
     sys.exit(0)
-  
+ 
 """ 
 sound_buffer = np.zeros(44100) 
 
