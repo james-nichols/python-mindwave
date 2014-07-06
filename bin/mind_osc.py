@@ -237,8 +237,8 @@ if __name__ == "__main__":
     #host_port_Max = 8000
     host_port_Max = 3444 
 
-    #hsm = HeadsetOSCManager(osc_host = local_ip, osc_port = host_port_SC)
-    hsm = HeadsetOSCManager(osc_host = local_ip, osc_port = host_port_Max)
+    hsm = HeadsetOSCManager(osc_host = local_ip, osc_port = host_port_SC)
+    #hsm = HeadsetOSCManager(osc_host = local_ip, osc_port = host_port_Max)
     time.sleep(1)
     
     if hsm.hs.get_state() != 'connected':
