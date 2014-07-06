@@ -81,6 +81,13 @@ class HeadsetOSCManager(object):
         
         self.low_alpha_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_low_alpha")
         self.high_alpha_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_high_alpha")
+        self.low_beta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_low_beta")
+        self.high_beta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_high_beta")
+        self.low_gamma_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_low_gamma")
+        self.mid_gamma_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_mid_gamma")
+        self.high_gamma_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_high_gamma")
+        self.theta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_theta")
+        self.delta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_delta")
         
     def destroy(self):
         
@@ -117,11 +124,17 @@ class HeadsetOSCManager(object):
         return None
 
     def delta_callback(self, value):
+        self.delta_interp.insert_point(value)
+        if not self.delta_interp.is_alive():
+            self.delta_interp.start()
         msg = OSC.OSCMessage("/eegdelta")
         msg.append(value)
         self.osc_client.send(msg) 
 
     def theta_callback(self, value):
+        self.theta_interp.insert_point(value)
+        if not self.theta_interp.is_alive():
+            self.theta_interp.start()
         msg = OSC.OSCMessage("/eegtheta")
         msg.append(value)
         self.osc_client.send(msg) 
@@ -148,30 +161,45 @@ class HeadsetOSCManager(object):
         return None
 
     def low_beta_callback(self, value):
+        self.low_beta_interp.insert_point(value)
+        if not self.low_beta_interp.is_alive():
+            self.low_beta_interp.start()
         msg = OSC.OSCMessage("/eeglowbeta")
         msg.append(value)
         self.osc_client.send(msg) 
         return None
 
     def high_beta_callback(self, value):
+        self.high_beta_interp.insert_point(value)
+        if not self.high_beta_interp.is_alive():
+            self.high_beta_interp.start()
         msg = OSC.OSCMessage("/eeghighbeta")
         msg.append(value)
         self.osc_client.send(msg) 
         return None
 
     def low_gamma_callback(self, value):
+        self.low_gamma_interp.insert_point(value)
+        if not self.low_gamma_interp.is_alive():
+            self.low_gamma_interp.start()
         msg = OSC.OSCMessage("/eeglowgamma")
         msg.append(value)
         self.osc_client.send(msg) 
         return None
 
     def mid_gamma_callback(self, value):
+        self.mid_gamma_interp.insert_point(value)
+        if not self.mid_gamma_interp.is_alive():
+            self.mid_gamma_interp.start()
         msg = OSC.OSCMessage("/eegmidgamma")
         msg.append(value)
         self.osc_client.send(msg) 
         return None
 
     def high_gamma_callback(self, value):
+        self.high_gamma_interp.insert_point(value)
+        if not self.high_gamma_interp.is_alive():
+            self.high_gamma_interp.start()
         msg = OSC.OSCMessage("/eeghighgamma")
         msg.append(value)
         self.osc_client.send(msg) 
