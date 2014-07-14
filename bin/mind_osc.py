@@ -58,10 +58,10 @@ class HeadsetOSCManager(object):
 
     def __init__(self, serial_dev = '/dev/tty.MindWaveMobile-DevA', osc_host = '127.0.0.1', osc_port = '8000'):
 
-        self.low_alpha_stab = ParameterStability(20, 2**23)
-        self.high_alpha_stab = ParameterStability(20, 2**23)
-        self.low_beta_stab = ParameterStability(20, 2**23)
-        self.high_beta_stab = ParameterStability(20, 2**23)
+        self.low_alpha_stab = ParameterStability(20)
+        self.high_alpha_stab = ParameterStability(20)
+        self.low_beta_stab = ParameterStability(20)
+        self.high_beta_stab = ParameterStability(20)
 
         self.hs = headset.Headset(serial_dev)
         self.hs.setCallBack("attention", self.attention_callback)
@@ -242,16 +242,16 @@ class HeadsetOSCManager(object):
 
 class ParameterStability():
 
-    def __init__(self, length, var):
+    def __init__(self, length):
         self.buf = np.zeros(length)
-        self.var_range = var
         self.stability = 0.0
 
     def add_point(self, value):
         self.buf[:-1] = self.buf[1:]
         self.buf[-1] = value
-
-        self.stability = 1.0 - ((self.buf[1:] - self.buf[:-1]) / (self.buf.size * self.var_range)).sum()
+        
+        self.stability = np.std(self.buf)
+        #self.stability = (np.absolute(self.buf[1:] - self.buf[:-1]) / (self.buf.size)).sum()
   
 class ParameterInterpolator(threading.Thread):
     
