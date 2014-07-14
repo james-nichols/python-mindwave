@@ -58,10 +58,10 @@ class HeadsetOSCManager(object):
 
     def __init__(self, serial_dev = '/dev/tty.MindWaveMobile-DevA', osc_host = '127.0.0.1', osc_port = '8000'):
 
-        self.low_alpha_stab = ParameterStability(20)
-        self.high_alpha_stab = ParameterStability(20)
-        self.low_beta_stab = ParameterStability(20)
-        self.high_beta_stab = ParameterStability(20)
+        self.low_alpha_stab = ParameterStability(10)
+        self.high_alpha_stab = ParameterStability(10)
+        self.low_beta_stab = ParameterStability(10)
+        self.high_beta_stab = ParameterStability(10)
 
         self.hs = headset.Headset(serial_dev)
         self.hs.setCallBack("attention", self.attention_callback)
