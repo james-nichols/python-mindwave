@@ -58,6 +58,11 @@ class HeadsetOSCManager(object):
 
     def __init__(self, serial_dev = '/dev/tty.MindWaveMobile-DevA', osc_host = '127.0.0.1', osc_port = '8000'):
 
+        self.low_alpha_stab = ParameterStability(20, 2**23)
+        self.high_alpha_stab = ParameterStability(20, 2**23)
+        self.low_beta_stab = ParameterStability(20, 2**23)
+        self.high_beta_stab = ParameterStability(20, 2**23)
+
         self.hs = headset.Headset(serial_dev)
         self.hs.setCallBack("attention", self.attention_callback)
         self.hs.setCallBack("meditation", self.meditation_callback)
@@ -72,7 +77,7 @@ class HeadsetOSCManager(object):
         self.hs.setCallBack("mid_gamma", self.mid_gamma_callback)
         self.hs.setCallBack("high_gamma", self.high_gamma_callback)
         self.hs.setCallBack("blink_strength", self.blink_strength_callback)
-        
+         
         self.osc_host = osc_host
         self.osc_port = osc_port
         # Now setup OSC client to send data
@@ -144,9 +149,14 @@ class HeadsetOSCManager(object):
         self.low_alpha_interp.insert_point(value)
         if not self.low_alpha_interp.is_alive():
             self.low_alpha_interp.start()
-         
+        
         msg = OSC.OSCMessage("/eeglowalpha")
         msg.append(value)
+        self.osc_client.send(msg) 
+        
+        self.low_alpha_stab.add_point(value)
+        msg = OSC.OSCMessage("/low_alpha_stability")
+        msg.append(self.low_alpha_stab.stability)
         self.osc_client.send(msg) 
         return None
 
@@ -158,6 +168,11 @@ class HeadsetOSCManager(object):
         msg = OSC.OSCMessage("/eeghighalpha")
         msg.append(value)
         self.osc_client.send(msg) 
+        
+        self.high_alpha_stab.add_point(value)
+        msg = OSC.OSCMessage("/high_alpha_stability")
+        msg.append(self.high_alpha_stab.stability)
+        self.osc_client.send(msg) 
         return None
 
     def low_beta_callback(self, value):
@@ -167,6 +182,11 @@ class HeadsetOSCManager(object):
         msg = OSC.OSCMessage("/eeglowbeta")
         msg.append(value)
         self.osc_client.send(msg) 
+        
+        self.low_beta_stab.add_point(value)
+        msg = OSC.OSCMessage("/low_beta_stability")
+        msg.append(self.low_beta_stab.stability)
+        self.osc_client.send(msg) 
         return None
 
     def high_beta_callback(self, value):
@@ -175,6 +195,11 @@ class HeadsetOSCManager(object):
             self.high_beta_interp.start()
         msg = OSC.OSCMessage("/eeghighbeta")
         msg.append(value)
+        self.osc_client.send(msg) 
+        
+        self.high_beta_stab.add_point(value)
+        msg = OSC.OSCMessage("/high_beta_stability")
+        msg.append(self.high_beta_stab.stability)
         self.osc_client.send(msg) 
         return None
 
@@ -214,6 +239,19 @@ class HeadsetOSCManager(object):
     def poll_buffer(self, in_data, frame_count, time_info, status):
         #print "flushing sound_buffer", sound_buffer, len(sound_buffer)
         return (self.sound_buffer, pyaudio.paContinue)
+
+class ParameterStability():
+
+    def __init__(self, length, var):
+        self.buf = np.zeros(length)
+        self.var_range = var
+        self.stability = 0.0
+
+    def add_point(self, value):
+        self.buf[:-1] = self.buf[1:]
+        self.buf[-1] = value
+
+        self.stability = 1.0 - ((self.buf[1:] - self.buf[:-1]) / (self.buf.size * self.var_range)).sum()
   
 class ParameterInterpolator(threading.Thread):
     
