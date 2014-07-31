@@ -50,6 +50,7 @@ class HeadsetRecorderManager(object):
     def raw_values_callback(self, raw_values):
         """ This function takes the raw values data, in blocks specified by the block size, and 
         sends it to the sound buffer """
+        print raw_values
         self.f.write("raw_data, {0}\n".format(raw_values))
         return None
 
