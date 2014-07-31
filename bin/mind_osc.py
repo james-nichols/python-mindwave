@@ -11,6 +11,8 @@ import pyaudio
 
 from pymindwave import headset
 from pymindwave.pyeeg import bin_power
+from pymindwave.pyeeg import pfd 
+from pymindwave.pyeeg import hfd
 
 class HeadsetSoundManager(object):
 
@@ -84,20 +86,17 @@ class HeadsetOSCManager(object):
         self.osc_client = OSC.OSCClient()
         self.osc_client.connect((self.osc_host, self.osc_port))
         
-        self.low_alpha_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_low_alpha")
-        self.high_alpha_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_high_alpha")
-        self.low_beta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_low_beta")
-        self.high_beta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_high_beta")
-        self.low_gamma_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_low_gamma")
-        self.mid_gamma_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_mid_gamma")
-        self.high_gamma_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_high_gamma")
-        self.theta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_theta")
-        self.delta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_delta")
+        #self.low_alpha_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_low_alpha")
+        #self.high_alpha_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_high_alpha")
+        #self.low_beta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_low_beta")
+        #self.high_beta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_high_beta")
+        #self.low_gamma_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_low_gamma")
+        #self.mid_gamma_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_mid_gamma")
+        #self.high_gamma_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_high_gamma")
+        #self.theta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_theta")
+        #self.delta_interp = ParameterInterpolator(10, 3, osc_host, osc_port, "/smoothed_delta")
         
     def destroy(self):
-        
-        self.low_alpha_interp.stop()
-        self.low_alpha_interp.stop()
         
         self.osc_client.disconnect()
          
@@ -116,115 +115,125 @@ class HeadsetOSCManager(object):
     def raw_values_callback(self, raw_values):
         """ This function takes the raw values data, in blocks specified by the block size, and 
         sends it to the sound buffer """
+
+        # We're going to try various parameters based on the raw data, from the EEG helpers
+        eeg_hfd = hfd(raw_values, 10)
+        eeg_pfd = pfd(raw_values)
         
+        print "HFD", eeg_hfd, "PFD", eeg_pfd
+        msg = OSC.OSCMessage("/eegpfd")
+        msg.append(eeg_pfd)
+        self.osc_client.send(msg)
+        msg = OSC.OSCMessage("/eeghfd")
+        msg.append(eeg_hfd)
+        self.osc_client.send(msg)
+
         #print len(signal.resample(raw_values, sample_rate))
+        raw_values = [1. * float(i) / 32768. for i in raw_values]
         print len(raw_values), raw_values
         msg = OSC.OSCMessage("/raw_data")
         msg.append(raw_values)
         self.osc_client.send(msg)
-        
-        #self.sound_buffer = 5 * signal.resample(raw_values, self.sample_rate).astype(np.int16)
-        #print self.sound_buffer[:256]
-        #print self.sound_buffer[:-255]
+
         return None
 
     def delta_callback(self, value):
-        self.delta_interp.insert_point(value)
-        if not self.delta_interp.is_alive():
-            self.delta_interp.start()
+        #self.delta_interp.insert_point(value)
+        #if not self.delta_interp.is_alive():
+        #    self.delta_interp.start()
         msg = OSC.OSCMessage("/eegdelta")
         msg.append(value)
         self.osc_client.send(msg) 
 
     def theta_callback(self, value):
-        self.theta_interp.insert_point(value)
-        if not self.theta_interp.is_alive():
-            self.theta_interp.start()
+        #self.theta_interp.insert_point(value)
+        #if not self.theta_interp.is_alive():
+        #    self.theta_interp.start()
         msg = OSC.OSCMessage("/eegtheta")
         msg.append(value)
         self.osc_client.send(msg) 
         return None
 
     def low_alpha_callback(self, value):
-        self.low_alpha_interp.insert_point(value)
-        if not self.low_alpha_interp.is_alive():
-            self.low_alpha_interp.start()
+        #self.low_alpha_interp.insert_point(value)
+        #if not self.low_alpha_interp.is_alive():
+        #    self.low_alpha_interp.start()
         
         msg = OSC.OSCMessage("/eeglowalpha")
         msg.append(value)
         self.osc_client.send(msg) 
         
         self.low_alpha_stab.add_point(value)
-        msg = OSC.OSCMessage("/low_alpha_stability")
+        msg = OSC.OSCMessage("/low_alpha_instability")
         msg.append(self.low_alpha_stab.stability)
         self.osc_client.send(msg) 
         return None
 
     def high_alpha_callback(self, value):
-        self.high_alpha_interp.insert_point(value)
-        if not self.high_alpha_interp.is_alive():
-            self.high_alpha_interp.start()
+        #self.high_alpha_interp.insert_point(value)
+        #if not self.high_alpha_interp.is_alive():
+        #    self.high_alpha_interp.start()
 
         msg = OSC.OSCMessage("/eeghighalpha")
         msg.append(value)
         self.osc_client.send(msg) 
         
         self.high_alpha_stab.add_point(value)
-        msg = OSC.OSCMessage("/high_alpha_stability")
+        msg = OSC.OSCMessage("/high_alpha_instability")
         msg.append(self.high_alpha_stab.stability)
         self.osc_client.send(msg) 
         return None
 
     def low_beta_callback(self, value):
-        self.low_beta_interp.insert_point(value)
-        if not self.low_beta_interp.is_alive():
-            self.low_beta_interp.start()
+        #self.low_beta_interp.insert_point(value)
+        #if not self.low_beta_interp.is_alive():
+        #    self.low_beta_interp.start()
         msg = OSC.OSCMessage("/eeglowbeta")
         msg.append(value)
         self.osc_client.send(msg) 
         
         self.low_beta_stab.add_point(value)
-        msg = OSC.OSCMessage("/low_beta_stability")
+        msg = OSC.OSCMessage("/low_beta_instability")
         msg.append(self.low_beta_stab.stability)
         self.osc_client.send(msg) 
         return None
 
     def high_beta_callback(self, value):
-        self.high_beta_interp.insert_point(value)
-        if not self.high_beta_interp.is_alive():
-            self.high_beta_interp.start()
+        #self.high_beta_interp.insert_point(value)
+        #if not self.high_beta_interp.is_alive():
+        #    self.high_beta_interp.start()
         msg = OSC.OSCMessage("/eeghighbeta")
         msg.append(value)
         self.osc_client.send(msg) 
         
         self.high_beta_stab.add_point(value)
-        msg = OSC.OSCMessage("/high_beta_stability")
+        msg = OSC.OSCMessage("/high_beta_instability")
         msg.append(self.high_beta_stab.stability)
         self.osc_client.send(msg) 
         return None
 
     def low_gamma_callback(self, value):
-        self.low_gamma_interp.insert_point(value)
-        if not self.low_gamma_interp.is_alive():
-            self.low_gamma_interp.start()
+        #self.low_gamma_interp.insert_point(value)
+        #if not self.low_gamma_interp.is_alive():
+        #    self.low_gamma_interp.start()
         msg = OSC.OSCMessage("/eeglowgamma")
         msg.append(value)
         self.osc_client.send(msg) 
         return None
 
     def mid_gamma_callback(self, value):
-        self.mid_gamma_interp.insert_point(value)
-        if not self.mid_gamma_interp.is_alive():
-            self.mid_gamma_interp.start()
+        #self.mid_gamma_interp.insert_point(value)
+        #if not self.mid_gamma_interp.is_alive():
+        #    self.mid_gamma_interp.start()
         msg = OSC.OSCMessage("/eegmidgamma")
         msg.append(value)
         self.osc_client.send(msg) 
         return None
 
     def high_gamma_callback(self, value):
-        self.high_gamma_interp.insert_point(value)
-        if not self.high_gamma_interp.is_alive():
-            self.high_gamma_interp.start()
+        #self.high_gamma_interp.insert_point(value)
+        #if not self.high_gamma_interp.is_alive():
+        #    self.high_gamma_interp.start()
         msg = OSC.OSCMessage("/eeghighgamma")
         msg.append(value)
         self.osc_client.send(msg) 
