@@ -3,68 +3,30 @@
 
 import platform, sys, time, threading
 import numpy as np
-from scipy import signal
-from scipy import interpolate
 
 import OSC
-import pyaudio
 
 from pymindwave import headset
 from pymindwave.pyeeg import bin_power
 from pymindwave.pyeeg import pfd 
 from pymindwave.pyeeg import hfd
 
-class HeadsetSoundManager(object):
-
-    def __init__(self, serial_dev = '/dev/tty.MindWaveMobile-DevA', sample_rate = 44100):
-
-        self.hs = headset.Headset(serial_dev) 
-        self.hs.setCallBack("attention", self.attention_callback)
-        self.hs.setCallBack("raw_values", self.raw_values_callback)
-        
-        self.sample_rate = sample_rate
-        self.sound_buffer = np.zeros(self.sample_rate)
-        
-        self.pa = pyaudio.PyAudio()
-        self.stream = self.pa.open(format=pyaudio.paInt16,
-            channels = 1,
-            rate = self.sample_rate,
-            output = True,
-            stream_callback = self.poll_buffer)
-
-        self.stream.start_stream()
-
-    def attention_callback(self, attention_value):
-        "this function will be called everytime NeuroPy has a new value for attention"
-        
-        print "Value of attention is", attention_value
-        
-        return None
-
-    def raw_values_callback(self, raw_values):
-        """ This function takes the raw values data, in blocks specified by the block size, and 
-        sends it to the sound buffer """
-        
-        #print len(signal.resample(raw_values, sample_rate))
-        #print len(raw_values), raw_values
-        #stream.write(10 * signal.resample(raw_values,sample_rate).astype(np.int16))
-        self.sound_buffer = 5 * signal.resample(raw_values, self.sample_rate).astype(np.int16)
-        print self.sound_buffer[:256], self.sound_buffer[:-256]
-        return None
-
-    def poll_buffer(self, in_data, frame_count, time_info, status):
-        #print "flushing sound_buffer", sound_buffer, len(sound_buffer)
-        return (self.sound_buffer, pyaudio.paContinue)
- 
 class HeadsetOSCManager(object):
 
     def __init__(self, serial_dev = '/dev/tty.MindWaveMobile-DevA', osc_host = '127.0.0.1', osc_port = '8000'):
 
+        self.last_raw = [0. for i in range(512)]
+            
         self.low_alpha_stab = ParameterStability(10)
         self.high_alpha_stab = ParameterStability(10)
         self.low_beta_stab = ParameterStability(10)
         self.high_beta_stab = ParameterStability(10)
 
+        self.c_low_alpha_stab = ParameterStability(10)
+        self.c_high_alpha_stab = ParameterStability(10)
+        self.c_low_beta_stab = ParameterStability(10)
+        self.c_high_beta_stab = ParameterStability(10)
+        
         self.hs = headset.Headset(serial_dev)
         self.hs.setCallBack("attention", self.attention_callback)
         self.hs.setCallBack("meditation", self.meditation_callback)
@@ -102,12 +64,14 @@ class HeadsetOSCManager(object):
          
     def attention_callback(self, value):
         msg = OSC.OSCMessage("/eegattention")
+        print "Attention", value
         msg.append(value)
         self.osc_client.send(msg) 
         return None
 
     def meditation_callback(self, value):
         msg = OSC.OSCMessage("/eegmeditation")
+        print "Meditation", value
         msg.append(value)
         self.osc_client.send(msg) 
         return None
@@ -115,12 +79,57 @@ class HeadsetOSCManager(object):
     def raw_values_callback(self, raw_values):
         """ This function takes the raw values data, in blocks specified by the block size, and 
         sends it to the sound buffer """
+        
+        spec,rel_spec = bin_power(raw_values + self.last_raw, [0.5,4,7,9.5,12,21,30], 512)
+         
+        msg = OSC.OSCMessage("/calcdelta")
+        msg.append(spec[0])
+        self.osc_client.send(msg)
+        msg = OSC.OSCMessage("/calctheta")
+        msg.append(spec[1])
+        self.osc_client.send(msg)
+        
+        msg = OSC.OSCMessage("/calclowbeta")
+        msg.append(spec[4])
+        self.osc_client.send(msg)
+        
+        self.c_low_beta_stab.add_point(spec[4])
+        msg = OSC.OSCMessage("/calc_low_beta_instability")
+        msg.append(self.c_low_beta_stab.stability)
+        self.osc_client.send(msg) 
+
+        msg = OSC.OSCMessage("/calchighbeta")
+        msg.append(spec[5])
+        self.osc_client.send(msg)
+
+        self.c_high_beta_stab.add_point(spec[5])
+        msg = OSC.OSCMessage("/calc_high_beta_instability")
+        msg.append(self.c_high_beta_stab.stability)
+        self.osc_client.send(msg) 
+
+        msg = OSC.OSCMessage("/calclowalpha")
+        msg.append(spec[2])
+        self.osc_client.send(msg)
+
+        self.c_low_alpha_stab.add_point(spec[2])
+        msg = OSC.OSCMessage("/calc_low_alpha_instability")
+        msg.append(self.c_low_alpha_stab.stability)
+        self.osc_client.send(msg) 
+
+        msg = OSC.OSCMessage("/calchighalpha")
+        msg.append(spec[3])
+        self.osc_client.send(msg)
+        self.last_raw = raw_values
+
+        self.c_high_alpha_stab.add_point(spec[3])
+        msg = OSC.OSCMessage("/calc_high_alpha_instability")
+        msg.append(self.c_high_alpha_stab.stability)
+        self.osc_client.send(msg) 
 
         # We're going to try various parameters based on the raw data, from the EEG helpers
         eeg_hfd = hfd(raw_values, 10)
         eeg_pfd = pfd(raw_values)
         
-        print "HFD", eeg_hfd, "PFD", eeg_pfd
         msg = OSC.OSCMessage("/eegpfd")
         msg.append(eeg_pfd)
         self.osc_client.send(msg)
@@ -128,9 +137,8 @@ class HeadsetOSCManager(object):
         msg.append(eeg_hfd)
         self.osc_client.send(msg)
 
-        #print len(signal.resample(raw_values, sample_rate))
         raw_values = [1. * float(i) / 32768. for i in raw_values]
-        print len(raw_values), raw_values
+        #print len(raw_values), raw_values
         msg = OSC.OSCMessage("/raw_data")
         msg.append(raw_values)
         self.osc_client.send(msg)
